@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>D3 Dashboard</title>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f8f8; margin: 0; padding: 0; }
+    h1 { text-align: center; padding: 20px; }
+    section { padding: 20px; background: white; margin: 20px auto; width: 90%; max-width: 800px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    svg { background: lightgrey; display: block; margin: auto; }
+    button { display: block; margin: 10px auto; padding: 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>D3.js Interactive Dashboard</h1>
+
+  <section id="brushing">
+    <h2>Brushing Interactivo</h2>
+    <div>
+      <svg id="brush1" width="300" height="300"></svg>
+      <svg id="brush2" width="300" height="300"></svg>
+    </div>
+  </section>
+
+  <section id="drag">
+    <h2>Drag & Drop de Círculos</h2>
+    <svg id="dragdrop" width="600" height="200">
+      <circle cx="100" cy="100" r="20" fill="red" />
+      <circle cx="300" cy="100" r="20" fill="green" />
+      <circle cx="500" cy="100" r="20" fill="blue" />
+    </svg>
+  </section>
+
+  <section id="stagger">
+    <h2>Gráfico de Barras Stagger</h2>
+    <button onclick="triggerStagger()">Animar</button>
+    <svg id="stagger-svg" width="600" height="300"></svg>
+  </section>
+
+  <section id="lissajous">
+    <h2>Curva de Lissajous</h2>
+    <svg id="lissajous-svg" width="300" height="300"></svg>
+  </section>
+
+  <script>
+from IPython.display import HTML, display
+
+# Código HTML con D3.js para mostrar coordenadas del mouse
+html_content = """
+<div>
+  <svg id="coords" width="300" height="300" style="background:lightgrey; border: 1px solid #ccc;">
+  </svg>
+</div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script>
+  function coordsPixels(selector) {
+    var txt = d3.select(selector).append('text')
+      .attr('font-family', 'Arial, sans-serif')
+      .attr('font-size', '12px')
+      .attr('fill', 'black');
+
+    var svg = d3.select(selector)
+      .attr('cursor', 'crosshair')
+      .on('mousemove', function() {
+        var pt = d3.mouse(svg.node());
+        txt.attr('x', 18 + pt[0])
+          .attr('y', 6 + pt[1])
+          .text('(' + Math.round(pt[0]) + ', ' + Math.round(pt[1]) + ')');
+      })
+      .on('mouseleave', function() {
+        txt.text('');
+      });
+  }
+
+  // Ejecutar cuando el DOM esté listo
+  setTimeout(function() {
+    coordsPixels('#coords');
+  }, 100);
+</script>
+"""
+
+# Mostrar el HTML en Colab
+display(HTML(html_content))
+
+import pandas as pd
+from IPython.display import display, HTML
+
+# Leer CSV
+df = pd.read_csv("/content/dense.csv")
+
+# Convertir a JSON
+data_json = df.to_json(orient='records')
+
+# Armar el HTML embebido con los datos insertados correctamente
+html_code = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v5.min.js"></script>
+</head>
+<body>
+<div>
+<svg id="brush1" width="300" height="300" style="background:lightgrey"></svg>
+<svg id="brush2" width="300" height="300" style="background:lightgrey"></svg>
+</div>
+
+<script>
+  const data = {data_json};
+
+  function makeBrush() {{
+    var svg1 = d3.select("#brush1"), svg2 = d3.select("#brush2");
+
+    var sc1 = d3.scaleLinear()
+      .domain([0, 10, 50])
+      .range(["lime", "yellow", "red"]);
+    var sc2 = d3.scaleLinear()
+      .domain([0, 10, 50])
+      .range(["lime", "yellow", "blue"]);
+
+    var cs1 = drawCircles(svg1, data, d => +d.A, d => +d.B, sc1);
+    var cs2 = drawCircles(svg2, data, d => +d.A, d => +d.B, sc2);
+
+    svg1.call(installHandlers, data, cs1, cs2, sc1, sc2);
+  }}
+
+  function drawCircles(svg, data, accX, accY, sc) {{
+    var color = sc(Infinity);
+    return svg.selectAll("circle")
+      .data(data)
+      .enter()
+      .append("circle")
+      .attr("r", 5)
+      .attr("cx", accX)
+      .attr("cy", accY)
+      .attr("fill", color)
+      .attr("fill-opacity", 0.4);
+  }}
+
+  function installHandlers(svg, data, cs1, cs2, sc1, sc2) {{
+    svg.attr("cursor", "crosshair")
+      .on("mousemove", function(event) {{
+        var pt = d3.pointer(event);
+        cs1.attr("fill", function(d, i) {{
+          var cx = +d3.select(this).attr("cx");
+          var cy = +d3.select(this).attr("cy");
+          var r = Math.hypot(pt[0] - cx, pt[1] - cy);
+          data[i]["r"] = r;
+          return sc1(r);
+        }});
+        cs2.attr("fill", (d, i) => sc2(data[i]["r"]));
+      }})
+      .on("mouseleave", function() {{
+        cs1.attr("fill", sc1(Infinity));
+        cs2.attr("fill", sc2(Infinity));
+      }});
+  }}
+
+  makeBrush();
+</script>
+</body>
+</html>
+"""
+
+# Mostrarlo
+display(HTML(html_code))
+
+
+from IPython.display import HTML, display
+
+html_content = """
+<div>
+  <svg id="dragdrop" width="600" height="200" style="background:lightgrey; border: 1px solid #ccc;">
+    <circle cx="100" cy="100" r="20" fill="red"></circle>
+    <circle cx="300" cy="100" r="20" fill="green"></circle>
+    <circle cx="500" cy="100" r="20" fill="blue"></circle>
+  </svg>
+</div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script>
+  function makeDragDrop() {
+    var widget = undefined, color = undefined;
+
+    var drag = d3.drag()
+      .on("start", function() {
+        color = d3.select(this).attr("fill");
+        widget = d3.select(this).attr("fill", "lime");
+      })
+      .on("drag", function() {
+        var pt = d3.mouse(d3.select("#dragdrop").node());
+        widget.attr("cx", pt[0]).attr("cy", pt[1]);
+      })
+      .on("end", function() {
+        widget.attr("fill", color);
+        widget = undefined;
+      });
+
+    drag(d3.select("#dragdrop").selectAll("circle"));
+  }
+
+  // Espera a que el DOM esté listo
+  setTimeout(function() {
+    makeDragDrop();
+  }, 100);
+</script>
+"""
+
+display(HTML(html_content))
+
+from IPython.display import display, HTML
+
+html_code = """
+<div>
+  <button onclick="triggerStagger()">Animar</button>
+  <svg id="stagger" width="600" height="300" style="background:lightgrey"></svg>
+</div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script>
+  let ds1 = [2, 1, 3, 5, 7, 8, 9, 9, 9, 8, 7, 5, 3, 1, 2];
+  let ds2 = [8, 9, 8, 7, 5, 3, 2, 1, 2, 3, 5, 7, 8, 9, 8];
+  let n = ds1.length;
+  let toggle = false;
+
+  const svg = d3.select("#stagger");
+  const maxY = d3.max([...ds1, ...ds2]);
+
+  const scX = d3.scaleLinear().domain([0, n]).range([50, 540]);
+  const scY = d3.scaleLinear().domain([0, maxY]).range([250, 50]);
+
+  // Crear las líneas al inicio
+  svg.selectAll("line")
+    .data(ds1)
+    .enter()
+    .append("line")
+    .attr("stroke", "red")
+    .attr("stroke-width", 20)
+    .attr("x1", (d, i) => scX(i))
+    .attr("x2", (d, i) => scX(i))
+    .attr("y1", scY(0))
+    .attr("y2", d => scY(d));
+
+  function triggerStagger() {
+    toggle = !toggle;
+    const currentData = toggle ? ds2 : ds1;
+
+    svg.selectAll("line")
+      .data(currentData)
+      .transition()
+      .duration(1000)
+      .delay((d, i) => 100 * i)
+      .attr("y2", d => scY(d));
+  }
+</script>
+"""
+
+display(HTML(html_code))
+
+
+from IPython.display import HTML
+
+HTML("""
+<div>
+<svg id="lissajous" width="300" height="300" style="background:lightgrey"></svg>
+</div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script>
+  (function makeLissajous() {
+    var svg = d3.select("#lissajous");
+
+    var a = 1.9, b = 3.2;
+    var phi, omega = 2 * Math.PI / 10000;
+
+    var crrX = 150 + 100, crrY = 150 + 0;
+    var prvX = crrX, prvY = crrY;
+
+    var timer = d3.timer(function(t) {
+      phi = omega * t;
+
+      crrX = 150 + 100 * Math.cos(a * phi);
+      crrY = 150 + 100 * Math.sin(b * phi);
+
+      svg.selectAll("line")
+        .each(function() { this.bogus_opacity *= 0.99; })
+        .attr("stroke-opacity", function() { return this.bogus_opacity; })
+        .filter(function() { return this.bogus_opacity < 0.05; })
+        .remove();
+
+      svg.append("line")
+        .each(function() { this.bogus_opacity = 1.0; })
+        .attr("x1", prvX).attr("y1", prvY)
+        .attr("x2", crrX).attr("y2", crrY)
+        .attr("stroke", "green").attr("stroke-width", 2);
+
+      prvX = crrX;
+      prvY = crrY;
+
+      if (t > 120000) { timer.stop(); }
+    });
+  })();
+</script>
+""")
+
+
+
+  </script>
+</body>
+</html>
